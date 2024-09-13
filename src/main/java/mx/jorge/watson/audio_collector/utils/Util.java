@@ -1,12 +1,13 @@
 package mx.jorge.watson.audio_collector.utils;
 
-import com.google.gson.Gson;
-import mx.jorge.watson.audio_collector.Constants;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import static java.lang.System.arraycopy;
+import static mx.jorge.watson.audio_collector.Constants.DEFAULT_RECORD_TIME_MILLIS;
+import static mx.jorge.watson.audio_collector.Constants.GSON;
 
 /**
  * @author huerta.jorge at gmail.com
@@ -15,23 +16,21 @@ public final class Util {
 
     private Util() {}
 
-    private static final Gson GSON = new Gson();
-
     public static Map<String, Object> buildResponse(String transcript) {
-        Map<String, Object> alternative = new HashMap<>(1);
+        Map<String, Object> alternative = new HashMap<>();
         alternative.put("transcript", transcript);
 
-        List<Map<String, Object>> alternatives = new ArrayList<>(1);
+        List<Map<String, Object>> alternatives = new ArrayList<>();
         alternatives.add(alternative);
 
-        Map<String, Object> result = new HashMap<>(2);
+        Map<String, Object> result = new HashMap<>();
         result.put("alternatives", alternatives);
         result.put("final", true);
 
-        List<Map<String, Object>> results = new ArrayList<>(1);
+        List<Map<String, Object>> results = new ArrayList<>();
         results.add(result);
 
-        Map<String, Object> response = new HashMap<>(2);
+        Map<String, Object> response = new HashMap<>();
         response.put("results", results);
         response.put("result_index", 0);
 
@@ -49,8 +48,8 @@ public final class Util {
 
     public static byte[] concatByteArray(byte[] a, byte[] b) {
         byte[] c = new byte[a.length + b.length];
-        System.arraycopy(a, 0, c, 0, a.length);
-        System.arraycopy(b, 0, c, a.length, b.length);
+        arraycopy(a, 0, c, 0, a.length);
+        arraycopy(b, 0, c, a.length, b.length);
         return c;
     }
 
@@ -58,7 +57,7 @@ public final class Util {
         try {
             return Long.parseLong(millis);
         } catch (NumberFormatException nfe) {
-            return Constants.DEFAULT_RECORD_TIME_MILLIS;
+            return DEFAULT_RECORD_TIME_MILLIS;
         }
     }
 }

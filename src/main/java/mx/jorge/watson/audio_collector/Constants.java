@@ -1,5 +1,7 @@
 package mx.jorge.watson.audio_collector;
 
+import com.google.gson.Gson;
+
 /**
  * @author huerta.jorge at gmail.com
  */
@@ -25,4 +27,5 @@ public final class Constants {
     public static final float AUDIO_VGW_FRAME_RATE = 8000;
     public static final boolean AUDIO_VGW_BIG_ENDIAN = false;
 
+    public static final Gson GSON = new Gson();
 }

@@ -2,24 +2,17 @@ package mx.jorge.watson.audio_collector.websocket;
 
 import com.google.gson.JsonSyntaxException;
 
-import mx.jorge.watson.audio_collector.Constants;
-import mx.jorge.watson.audio_collector.utils.Util;
-
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-
 import java.util.Base64;
 import java.util.Map;
 import java.util.Optional;
-
 import javax.enterprise.context.ApplicationScoped;
-
 import javax.sound.sampled.AudioFileFormat;
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
-
 import javax.websocket.EndpointConfig;
 import javax.websocket.OnClose;
 import javax.websocket.OnError;
@@ -31,6 +24,26 @@ import javax.websocket.server.ServerEndpoint;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+
+import static mx.jorge.watson.audio_collector.Constants.ACTION_KEY;
+import static mx.jorge.watson.audio_collector.Constants.ACTION_START;
+import static mx.jorge.watson.audio_collector.Constants.ACTION_STOP;
+import static mx.jorge.watson.audio_collector.Constants.AUDIO_VGW_BIG_ENDIAN;
+import static mx.jorge.watson.audio_collector.Constants.AUDIO_VGW_CHANNELS;
+import static mx.jorge.watson.audio_collector.Constants.AUDIO_VGW_FRAME_RATE;
+import static mx.jorge.watson.audio_collector.Constants.AUDIO_VGW_FRAME_SIZE;
+import static mx.jorge.watson.audio_collector.Constants.AUDIO_VGW_SAMPLE_RATE;
+import static mx.jorge.watson.audio_collector.Constants.AUDIO_VGW_SAMPLE_SIZE_IN_BITS;
+import static mx.jorge.watson.audio_collector.Constants.DEFAULT_RECORD_TIME_MILLIS;
+import static mx.jorge.watson.audio_collector.Constants.KEEP_ALIVE_MESSAGE;
+import static mx.jorge.watson.audio_collector.Constants.LISTENING_MESSAGE;
+import static mx.jorge.watson.audio_collector.Constants.VGW_SESSION_ID_HEADER;
+import static mx.jorge.watson.audio_collector.Constants.VGW_SESSION_ID_UNKNOWN;
+import static mx.jorge.watson.audio_collector.utils.Util.buildResponse;
+import static mx.jorge.watson.audio_collector.utils.Util.concatByteArray;
+import static mx.jorge.watson.audio_collector.utils.Util.getTimeToRecInMillis;
+import static mx.jorge.watson.audio_collector.utils.Util.parseJSONStringToMap;
+import static mx.jorge.watson.audio_collector.utils.Util.parseMapToJSONString;
 
 /**
  * @author huerta.jorge at gmail.com
@@ -52,15 +65,15 @@ public class ServerWebSocket {
     public void open(Session session, EndpointConfig config) {
         this.audioFormat = new AudioFormat(
                 AudioFormat.Encoding.ULAW,
-                Constants.AUDIO_VGW_SAMPLE_RATE,
-                Constants.AUDIO_VGW_SAMPLE_SIZE_IN_BITS,
-                Constants.AUDIO_VGW_CHANNELS,
-                Constants.AUDIO_VGW_FRAME_SIZE,
-                Constants.AUDIO_VGW_FRAME_RATE,
-                Constants.AUDIO_VGW_BIG_ENDIAN
+                AUDIO_VGW_SAMPLE_RATE,
+                AUDIO_VGW_SAMPLE_SIZE_IN_BITS,
+                AUDIO_VGW_CHANNELS,
+                AUDIO_VGW_FRAME_SIZE,
+                AUDIO_VGW_FRAME_RATE,
+                AUDIO_VGW_BIG_ENDIAN
         );
 
-        this.recTimeInMillis = Constants.DEFAULT_RECORD_TIME_MILLIS;
+        this.recTimeInMillis = DEFAULT_RECORD_TIME_MILLIS;
         this.isAudioCollected = false;
 
         this.vgwSessionId = Optional.ofNullable(config)
@@ -68,10 +81,10 @@ public class ServerWebSocket {
                 .map(userPropertiesMap -> userPropertiesMap.get("handshakeRequest"))
                 .map(HandshakeRequest.class::cast)
                 .map(HandshakeRequest::getHeaders)
-                .map(headersMap -> headersMap.get(Constants.VGW_SESSION_ID_HEADER))
+                .map(headersMap -> headersMap.get(VGW_SESSION_ID_HEADER))
                 .filter(values -> !values.isEmpty())
                 .map(values -> values.get(0))
-                .orElse(Constants.VGW_SESSION_ID_UNKNOWN);
+                .orElse(VGW_SESSION_ID_UNKNOWN);
 
         debugLog.debug("Session opened (websocket) ==> {}", session.getId());
         debugLog.debug("Session opened (vgw-session-id) ==> {}", this.vgwSessionId);
@@ -81,16 +94,16 @@ public class ServerWebSocket {
     public void handleMessage(String message, Session session) {
         debugLog.debug("message received ==> {}", message);
         try {
-            Map<String, Object> messageMap = Util.parseJSONStringToMap(message);
-            if (messageMap.containsKey(Constants.ACTION_KEY)) {
-                if (Constants.ACTION_START.equals(messageMap.get(Constants.ACTION_KEY))) {
+            Map<String, Object> messageMap = parseJSONStringToMap(message);
+            if (messageMap.containsKey(ACTION_KEY)) {
+                if (ACTION_START.equals(messageMap.get(ACTION_KEY))) {
                     debugLog.debug("ACTION - START");
-                    this.recTimeInMillis = Util.getTimeToRecInMillis((String) messageMap.get("recTimeInMillis"));
+                    this.recTimeInMillis = getTimeToRecInMillis((String) messageMap.get("recTimeInMillis"));
                     debugLog.debug("Recording time in millis: {}", this.recTimeInMillis);
-                } else if (Constants.ACTION_STOP.equals(messageMap.get(Constants.ACTION_KEY))) {
+                } else if (ACTION_STOP.equals(messageMap.get(ACTION_KEY))) {
                     debugLog.debug("ACTION - END");
                 }
-                session.getBasicRemote().sendText(Constants.LISTENING_MESSAGE);
+                session.getBasicRemote().sendText(LISTENING_MESSAGE);
             }
         } catch (IOException | JsonSyntaxException e) {
             debugLog.error("An error has occurred within the message handler", e);
@@ -99,7 +112,7 @@ public class ServerWebSocket {
 
     @OnMessage
     public void handleBinaryStreamMessage(byte[] data, Session session) {
-        String jsonResponse = Constants.KEEP_ALIVE_MESSAGE;
+        String jsonResponse = KEEP_ALIVE_MESSAGE;
         if (this.isAudioCollected) {
             try {
                 session.getBasicRemote().sendText(jsonResponse);
@@ -113,7 +126,7 @@ public class ServerWebSocket {
             this.audioByteArr = data;
             this.startTime = System.currentTimeMillis();
         } else {
-            this.audioByteArr = Util.concatByteArray(this.audioByteArr, data);
+            this.audioByteArr = concatByteArray(this.audioByteArr, data);
         }
 
         if ((System.currentTimeMillis() - this.startTime) >= this.recTimeInMillis) {
@@ -130,7 +143,7 @@ public class ServerWebSocket {
                         AudioFileFormat.Type.WAVE,
                         byteArrayOutputStream);
                 String transcript = Base64.getEncoder().encodeToString(byteArrayOutputStream.toByteArray());
-                jsonResponse = Util.parseMapToJSONString(Util.buildResponse(transcript));
+                jsonResponse = parseMapToJSONString(buildResponse(transcript));
             } catch (IOException e) {
                 debugLog.error("An error has occurred during the audio recompose process", e);
             }
